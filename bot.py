@@ -1,94 +1,108 @@
-import asyncio
-import os
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+import logging
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
-    ApplicationBuilder, CallbackQueryHandler, CommandHandler,
-    MessageHandler, ContextTypes, filters
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+    ConversationHandler,
 )
+import os
 from dotenv import load_dotenv
 
+# Cargar variables de entorno
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-OWNER_CHAT_ID = os.getenv("OWNER_CHAT_ID")  # Pega aquí el número cuando lo tengas
+OWNER_CHAT_ID = 6130272246  # Tu chat_id personal
 
-# --- MENÚ PRINCIPAL ---
-def main_menu_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("1. Info Grupo Premium", callback_data='1')],
-        [InlineKeyboardButton("2. Preguntas frecuentes", callback_data='2')]
-    ])
+# Configuración del log
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# --- SUBMENÚ FAQ ---
-def faq_menu_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("1. Porcentaje de ganancias", callback_data='faq_1')],
-        [InlineKeyboardButton("2. Plataforma de apuestas", callback_data='faq_2')],
-        [InlineKeyboardButton("3. Duda de pick", callback_data='faq_3')],
-        [InlineKeyboardButton("4. Otra pregunta", callback_data='faq_4')]
-    ])
+# Estados para ConversationHandler
+WAITING_FOR_QUESTION = range(1)
 
-# --- /start o cualquier texto muestra el menú ---
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Bienvenido! Elige una opción:", reply_markup=main_menu_keyboard())
+# Menú principal
+main_menu = ReplyKeyboardMarkup(
+    [
+        [KeyboardButton("1. Información del grupo premium")],
+        [KeyboardButton("2. Preguntas frecuentes")],
+        [KeyboardButton("3. Tengo una duda sobre un pick")]
+    ],
+    resize_keyboard=True
+)
 
-# --- Captura el chat ID del dueño y lo responde (temporal) ---
-async def get_owner_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    await update.message.reply_text(f"🆔 Tu chat ID es: `{chat_id}`", parse_mode="Markdown")
+# Submenú (puedes expandir esto si deseas)
+faq_menu = ReplyKeyboardMarkup(
+    [
+        [KeyboardButton("1. Porcentaje de ganancias")],
+        [KeyboardButton("2. Plataforma de apuestas")],
+        [KeyboardButton("3. Otra pregunta")]
+    ],
+    resize_keyboard=True
+)
 
-# --- Manejador de botones ---
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("¡Bienvenido! Selecciona una opción:", reply_markup=main_menu)
 
-    data = query.data
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
 
-    # Menú principal
-    if data == '1':
-        await query.message.reply_text("🔐 El grupo premium ofrece picks diarios y soporte personalizado.")
-    elif data == '2':
-        await query.message.reply_text("Preguntas frecuentes:", reply_markup=faq_menu_keyboard())
+    if text.startswith("/start") or text.lower() in ["hola", "menu", "inicio"]:
+        await update.message.reply_text("¡Bienvenido! Selecciona una opción:", reply_markup=main_menu)
+        return
 
-    # Submenú FAQ
-    elif data == 'faq_1':
-        await query.message.reply_text("📈 El porcentaje de ganancias es del 80% mensual aproximadamente.")
-    elif data == 'faq_2':
-        await query.message.reply_text("🏟️ Usamos plataformas legales como Bet365 y Caliente.mx.")
-    elif data == 'faq_3':
-        await query.message.reply_text("✍️ Por favor, escribe tu duda sobre el pick aquí.")
-        context.user_data['waiting_question'] = 'duda_pick'
-    elif data == 'faq_4':
-        await query.message.reply_text("✍️ Por favor, escribe tu pregunta aquí.")
-        context.user_data['waiting_question'] = 'otra_pregunta'
-
-# --- Reenvío de dudas al dueño ---
-async def forward_doubt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get('waiting_question'):
-        message = update.message.text
-        user = update.effective_user
-        text = f"📩 Nueva pregunta de {user.first_name} (@{user.username or 'sin usuario'}):\n\n{message}"
-
-        if OWNER_CHAT_ID:
-            await context.bot.send_message(chat_id=int(OWNER_CHAT_ID), text=text)
-
-        await update.message.reply_text("✅ Gracias por tu mensaje. Pronto te responderemos.")
-        context.user_data['waiting_question'] = None
+    if text.startswith("1. Información del grupo premium"):
+        await update.message.reply_text("El grupo premium incluye picks exclusivos, seguimiento personalizado y más.")
+    elif text.startswith("2. Preguntas frecuentes"):
+        await update.message.reply_text("Selecciona una pregunta frecuente:", reply_markup=faq_menu)
+    elif text.startswith("3. Tengo una duda sobre un pick"):
+        await update.message.reply_text("Por favor escribe tu duda y la enviaré al administrador.")
+        return WAITING_FOR_QUESTION
+    elif text.startswith("1. Porcentaje de ganancias"):
+        await update.message.reply_text("Nuestro porcentaje de ganancias promedio es del 85% mensual.")
+    elif text.startswith("2. Plataforma de apuestas"):
+        await update.message.reply_text("Recomendamos utilizar Bet365, Codere o Caliente MX.")
+    elif text.startswith("3. Otra pregunta"):
+        await update.message.reply_text("Escribe tu pregunta y la enviaré al administrador.")
+        return WAITING_FOR_QUESTION
     else:
-        await handle_text(update, context)  # Muestra el menú si no estaba esperando pregunta
+        await update.message.reply_text("No entendí tu mensaje. Por favor elige una opción del menú.")
 
-# --- MAIN ---
+async def forward_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
+    question = update.message.text
+
+    mensaje = f"📩 Nueva pregunta de {user.full_name} (@{user.username}):\n\n{question}"
+    await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=mensaje)
+
+    await update.message.reply_text("Gracias por tu pregunta. El administrador te responderá pronto.", reply_markup=main_menu)
+    return ConversationHandler.END
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Operación cancelada.", reply_markup=main_menu)
+    return ConversationHandler.END
+
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", handle_text))
-    app.add_handler(CallbackQueryHandler(button_handler))
+    conv_handler = ConversationHandler(
+        entry_points=[
+            MessageHandler(filters.Regex("^3. Tengo una duda sobre un pick$"), handle_message),
+            MessageHandler(filters.Regex("^3. Otra pregunta$"), handle_message)
+        ],
+        states={
+            WAITING_FOR_QUESTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, forward_question)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
 
-    # Detectar cualquier texto
-    app.add_handler(MessageHandler(filters.TEXT & filters.User(username="tu_usuario_telegram"), get_owner_chat_id))  # Solo para que obtengas tu chat_id
-    app.add_handler(MessageHandler(filters.TEXT, forward_doubt))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(conv_handler)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("✅ Bot corriendo correctamente en Railway...")
     await app.run_polling()
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
