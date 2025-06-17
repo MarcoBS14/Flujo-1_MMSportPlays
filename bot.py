@@ -80,6 +80,13 @@ async def main():
     print("✅ Bot corriendo correctamente en Railway...")
     await app.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+
+    try:
+        asyncio.get_event_loop().run_until_complete(main())
+    except RuntimeError:
+        # fallback si el loop ya está corriendo
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(main())
