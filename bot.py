@@ -1,4 +1,5 @@
 import os
+import unicodedata
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
@@ -9,66 +10,96 @@ from telegram.ext import (
     filters,
 )
 
-# Cargar las variables de entorno
+# Cargar variables de entorno
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_CHAT_ID = 6130272246  # Reemplazar por el ID real del administrador
+ADMIN_CHAT_ID = 6130272246  # Reemplaza con tu ID real
 
-# Menú principal
+# Menú principal (solo opciones 1 y 2)
 main_menu = ReplyKeyboardMarkup(
-    [["1. Información sobre el grupo premium"], ["2. Preguntas frecuentes"], ["3. Otra duda"]],
+    [["1. Información sobre el grupo premium"], ["2. Preguntas frecuentes"]],
     resize_keyboard=True
 )
 
-# Submenú de preguntas frecuentes
+# Submenú de FAQs (opciones 1 a 4, incluyendo dudas)
 faq_menu = ReplyKeyboardMarkup(
     [["1. Porcentaje de ganancias"], ["2. Plataforma de apuestas"], ["3. Duda de pick"], ["4. Otra pregunta"]],
     resize_keyboard=True
 )
 
-# Estado de usuarios esperando pregunta libre
+# Diccionario de estados por usuario
 dynamic_state = {}
 
-# Mensaje inicial o cualquier palabra activa el menú
+# Normalización de texto (quitar tildes y pasar a minúsculas)
+def normalizar(texto):
+    texto = texto.lower()
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+# /start o mensaje libre → muestra menú principal
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    dynamic_state.pop(user_id, None)
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text="¡Hola! 👋 ¿Cómo puedo ayudarte hoy?",
-                                   reply_markup=main_menu)
+    user_id = int(update.effective_user.id)
+    dynamic_state.pop(user_id, None)  # Limpiar estado previo
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="¡Hola! 👋 ¿Cómo puedo ayudarte hoy?",
+        reply_markup=main_menu
+    )
 
-# Manejo de mensajes
+# Manejo general de mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    text = update.message.text.strip()
+    user_id = int(update.effective_user.id)
+    text_raw = update.message.text.strip()
+    text = normalizar(text_raw)
 
+    # Si el usuario está respondiendo una duda
     if user_id in dynamic_state:
-        # El usuario está respondiendo una duda libre
         motivo = dynamic_state.pop(user_id)
-        mensaje = f"📩 Nueva duda desde el bot:\nID: {user_id}\nMotivo: {motivo}\nMensaje: {text}"
+        mensaje = f"📩 Nueva duda desde el bot:\nID: {user_id}\nMotivo: {motivo}\nMensaje: {text_raw}"
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=mensaje)
         await update.message.reply_text("Gracias, un administrador te responderá en breve.")
         return
 
-    if text == "1. Información sobre el grupo premium":
-        await update.message.reply_text("El costo de entrada al grupo es de 499 MXN (25 USD) mensuales.\n\n👉 Paga aquí: https://tu-link-de-pago.com")
-    elif text == "2. Preguntas frecuentes":
-        await update.message.reply_text("Preguntas frecuentes:\nSelecciona una opción:", reply_markup=faq_menu)
-    elif text == "3. Otra duda":
-        dynamic_state[user_id] = "Otra duda"
-        await update.message.reply_text("Por favor, escribe tu pregunta y te responderemos manualmente en breve.")
-    elif text == "1. Porcentaje de ganancias":
+    # Menú principal
+    if text_raw == "1. Información sobre el grupo premium":
+        await update.message.reply_text(
+            "El costo de entrada al grupo es de 499 MXN (25 USD) mensuales.\n\n👉 Paga aquí: https://tu-link-de-pago.com"
+        )
+        return
+
+    elif text_raw == "2. Preguntas frecuentes":
+        await update.message.reply_text(
+            "Preguntas frecuentes:\nSelecciona una opción:",
+            reply_markup=faq_menu
+        )
+        return
+
+    # Submenú de FAQs
+    elif text_raw == "1. Porcentaje de ganancias":
         await update.message.reply_text("El porcentaje de ganancias mensual es del 85% aproximado.")
-    elif text == "2. Plataforma de apuestas":
+        return
+
+    elif text_raw == "2. Plataforma de apuestas":
         await update.message.reply_text("Usamos mayormente Bet365 y Caliente.mx para nuestros picks.")
-    elif text == "3. Duda de pick":
+        return
+
+    elif text_raw == "3. Duda de pick":
         dynamic_state[user_id] = "Duda sobre pick"
         await update.message.reply_text("Escribe tu duda sobre un pick. Un administrador te responderá personalmente.")
-    elif text == "4. Otra pregunta":
+        return
+
+    elif text_raw == "4. Otra pregunta":
         dynamic_state[user_id] = "Otra pregunta en FAQs"
         await update.message.reply_text("Por favor, escribe tu pregunta.")
-    else:
-        await update.message.reply_text("No entendí esa opción. Por favor elige una del menú.", reply_markup=main_menu)
+        return
+
+    # Fallback para cualquier otro texto: muestra menú principal
+    await update.message.reply_text(
+        "¡Hola! 👋 ¿Cómo puedo ayudarte hoy?",
+        reply_markup=main_menu
+    )
 
 # Inicialización del bot
 async def main():
@@ -86,7 +117,6 @@ if __name__ == "__main__":
     try:
         asyncio.get_event_loop().run_until_complete(main())
     except RuntimeError:
-        # fallback si el loop ya está corriendo
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(main())
