@@ -1,82 +1,59 @@
 import os
 from dotenv import load_dotenv
-from telegram import (
-    Update,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-)
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
+    ContextTypes,
     CommandHandler,
     MessageHandler,
-    ContextTypes,
     filters,
 )
 
-# Cargar token desde variables de entorno
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
-# Menús
-MAIN_MENU = [
-    "1. Información sobre el grupo premium",
-    "2. Preguntas frecuentes"
-]
-FAQ_OPTIONS = [
-    "1. Porcentaje de ganancias",
-    "2. Plataforma de apuestas",
-    "3. Otra duda",
-    "4. Volver al menú principal"
-]
-
-def make_keyboard(options):
-    return ReplyKeyboardMarkup([[KeyboardButton(opt)] for opt in options], resize_keyboard=True)
-
-# /start o cualquier texto
+# MENSAJE DE MENÚ INICIAL
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["submenu"] = None
-    await update.message.reply_text(
-        "¡Hola! 👋 ¿Cómo puedo ayudarte hoy?",
-        reply_markup=make_keyboard(MAIN_MENU)
-    )
+    keyboard = [["1. Información sobre el grupo premium"], ["2. Preguntas frecuentes"]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("¡Hola! 👋 ¿Cómo puedo ayudarte hoy?", reply_markup=reply_markup)
 
-# Mensajes del usuario
+# RESPUESTA A OPCIONES DEL MENÚ
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message.text.strip()
-    submenu = context.user_data.get("submenu", None)
+    text = update.message.text.strip()
 
-    # Si no hay submenú y mensaje no es válido, mostrar siempre el menú principal
-    if submenu is None:
-        if msg == MAIN_MENU[0]:
-            await update.message.reply_text("El costo de entrada al grupo es de 499 MXN (25 USD) mensuales.\n👉 Paga aquí")
-        elif msg == MAIN_MENU[1]:
-            context.user_data["submenu"] = "faq"
-            await update.message.reply_text("Preguntas frecuentes:\nSelecciona una opción:", reply_markup=make_keyboard(FAQ_OPTIONS))
-        else:
-            await start(update, context)  # Redirige al menú principal
-        return
+    if text == "1" or text.startswith("1."):
+        await update.message.reply_text("El costo de entrada al grupo es de 499 MXN (25 USD) mensuales.\n👉 Paga aquí")
+    elif text == "2" or text.startswith("2."):
+        keyboard = [
+            ["1. Porcentaje de ganancias"],
+            ["2. Plataforma de apuestas"],
+            ["3. Duda de pick"],
+            ["4. Otra pregunta"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("Preguntas frecuentes:\nSelecciona una opción:", reply_markup=reply_markup)
 
-    # Submenú de FAQ
-    if submenu == "faq":
-        if msg == FAQ_OPTIONS[0]:
-            await update.message.reply_text("Actualmente manejamos un porcentaje mensual estimado entre 10% y 35%.")
-        elif msg == FAQ_OPTIONS[1]:
-            await update.message.reply_text("La plataforma principal que usamos es Bet365, aunque también damos picks para Codere o Caliente.")
-        elif msg == FAQ_OPTIONS[2]:
-            await update.message.reply_text("Escribe tu duda sobre un pick. Un administrador te responderá personalmente.")
-        elif msg == FAQ_OPTIONS[3]:
-            context.user_data["submenu"] = None
-            await start(update, context)
-        else:
-            await update.message.reply_text("No entendí esa opción. Por favor elige una del menú.")
+    elif text.startswith("1. Porcentaje") or text == "1":
+        await update.message.reply_text("El porcentaje de ganancias varía, pero suele estar entre 60% y 80% mensual.")
+    elif text.startswith("2. Plataforma") or text == "2":
+        await update.message.reply_text("La plataforma recomendada para las apuestas es Bet365.")
+    elif text.startswith("3. Duda") or text == "3":
+        await update.message.reply_text("Escribe tu duda sobre un pick. Un administrador te responderá personalmente.")
+    elif text.startswith("4. Otra") or text == "4":
+        await update.message.reply_text("Por favor, escribe tu pregunta y te responderemos lo antes posible.")
+    else:
+        # Si no reconoce el texto, vuelve a mostrar el menú
+        await start(update, context)
 
-# Main
+# CONFIGURACIÓN PRINCIPAL
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("✅ Bot corriendo correctamente...")
+    print("✅ Bot corriendo correctamente en Railway...")
     await app.run_polling()
 
 if __name__ == "__main__":
