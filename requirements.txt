@@ -2,3 +2,4 @@ python-telegram-bot==20.3
 python-dotenv==1.1.0
 certifi==2025.4.26
 idna==3.10
+nest_asyncio==1.6.0
