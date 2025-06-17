@@ -13,7 +13,7 @@ from telegram.ext import (
 # Cargar variables de entorno
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_CHAT_ID = 6130272246  # Reemplaza con tu ID real
+ADMIN_CHAT_ID = 6130272246  # Reemplaza con el ID real del administrador
 
 # Menú principal (solo opciones 1 y 2)
 main_menu = ReplyKeyboardMarkup(
@@ -21,16 +21,16 @@ main_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# Submenú de FAQs (opciones 1 a 4, incluyendo dudas)
+# Submenú (FAQs con 4 opciones)
 faq_menu = ReplyKeyboardMarkup(
     [["1. Porcentaje de ganancias"], ["2. Plataforma de apuestas"], ["3. Duda de pick"], ["4. Otra pregunta"]],
     resize_keyboard=True
 )
 
-# Diccionario de estados por usuario
+# Diccionario de estados activos
 dynamic_state = {}
 
-# Normalización de texto (quitar tildes y pasar a minúsculas)
+# Función para normalizar texto
 def normalizar(texto):
     texto = texto.lower()
     return ''.join(
@@ -38,10 +38,10 @@ def normalizar(texto):
         if unicodedata.category(c) != 'Mn'
     )
 
-# /start o mensaje libre → muestra menú principal
+# Comando /start o mensajes de activación
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(update.effective_user.id)
-    dynamic_state.pop(user_id, None)  # Limpiar estado previo
+    dynamic_state.pop(user_id, None)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="¡Hola! 👋 ¿Cómo puedo ayudarte hoy?",
@@ -54,7 +54,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_raw = update.message.text.strip()
     text = normalizar(text_raw)
 
-    # Si el usuario está respondiendo una duda
+    # Si está en modo de espera para escribir su duda
     if user_id in dynamic_state:
         motivo = dynamic_state.pop(user_id)
         mensaje = f"📩 Nueva duda desde el bot:\nID: {user_id}\nMotivo: {motivo}\nMensaje: {text_raw}"
@@ -76,7 +76,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Submenú de FAQs
+    # Submenú
     elif text_raw == "1. Porcentaje de ganancias":
         await update.message.reply_text("El porcentaje de ganancias mensual es del 85% aproximado.")
         return
@@ -95,22 +95,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Por favor, escribe tu pregunta.")
         return
 
-    # Fallback para cualquier otro texto: muestra menú principal
+    # Fallback: cualquier otro mensaje → menú principal
     await update.message.reply_text(
         "¡Hola! 👋 ¿Cómo puedo ayudarte hoy?",
         reply_markup=main_menu
     )
 
-# Inicialización del bot
-async def main():
+# Inicialización directa sin manejo manual del loop (recomendado para Railway)
+if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("✅ Bot corriendo correctamente en Railway...")
-    await app.run_polling()
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    app.run_polling()
