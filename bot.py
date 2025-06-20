@@ -15,7 +15,7 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_CHAT_ID = 6130272246
 
-# Menús del bot
+# Menú principal
 main_menu = ReplyKeyboardMarkup(
     [["1. Información sobre el grupo premium"], ["2. Preguntas frecuentes"]],
     resize_keyboard=True
@@ -26,10 +26,10 @@ faq_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# Diccionario de estados temporales
+# Estado dinámico
 dynamic_state = {}
 
-# Función para normalizar texto
+# Función para normalizar texto (elimina acentos y pasa a minúsculas)
 def normalizar(texto):
     texto = texto.lower()
     return ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
@@ -38,9 +38,9 @@ def normalizar(texto):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(update.effective_user.id)
     dynamic_state.pop(user_id, None)
-    await update.message.reply_text("¡Hola! 👋 ¿Cómo puedo ayudarte hoy?", reply_markup=main_menu)
+    await update.message.reply_text("👋 ¿Cómo puedo ayudarte hoy?", reply_markup=main_menu)
 
-# Manejo general de mensajes
+# Manejo de mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(update.effective_user.id)
     text_raw = update.message.text.strip()
@@ -53,8 +53,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Gracias, un administrador te responderá pronto.")
         return
 
-    # Opción 1: Información del grupo premium
-    if text_raw == "1. Información sobre el grupo premium":
+    # ✅ Opción 1: Información sobre el grupo premium
+    if "informacion sobre el grupo premium" in text:
         registro_url = (
             f"https://api.buclecompany.com/widget/form/NzctQhiqWZCkJyHaUtti"
             f"?notrack=true&telegram_id={user_id}"
@@ -71,30 +71,37 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{registro_url}",
             parse_mode="Markdown"
         )
+        return
 
-    # Opción 2: Preguntas frecuentes
-    elif text_raw == "2. Preguntas frecuentes":
+    # ✅ Opción 2: Preguntas frecuentes
+    elif "preguntas frecuentes" in text:
         await update.message.reply_text("Selecciona una opción:", reply_markup=faq_menu)
+        return
 
-    # Subopciones del menú de FAQs
-    elif text_raw == "1. Porcentaje de ganancias":
-        await update.message.reply_text("El porcentaje de ganancias mensual es de aproximadamente 85%.")
+    # ✅ Subopciones FAQ
+    elif "porcentaje de ganancias" in text:
+        await update.message.reply_text("📊 El porcentaje de ganancias mensual es de aproximadamente 85%.")
+        return
 
-    elif text_raw == "2. Plataforma de apuestas":
-        await update.message.reply_text("Usamos principalmente Bet365 y Caliente.mx.")
+    elif "plataforma de apuestas" in text:
+        await update.message.reply_text("🏟 Usamos principalmente Bet365 y Caliente.mx.")
+        return
 
-    elif text_raw == "3. Duda de pick":
+    elif "duda de pick" in text:
         dynamic_state[user_id] = "Duda sobre pick"
-        await update.message.reply_text("Por favor, escribe tu duda sobre algún pick.")
+        await update.message.reply_text("📝 Por favor, escribe tu duda sobre algún pick.")
+        return
 
-    elif text_raw == "4. Otra pregunta":
+    elif "otra pregunta" in text:
         dynamic_state[user_id] = "Otra pregunta general"
-        await update.message.reply_text("Por favor, escribe tu pregunta.")
+        await update.message.reply_text("🗨️ Por favor, escribe tu pregunta.")
+        return
 
+    # ❓ Por defecto
     else:
         await update.message.reply_text("👋 ¿Cómo puedo ayudarte hoy?", reply_markup=main_menu)
 
-# Iniciar bot
+# Lanzar el bot
 if __name__ == "__main__":
     print("🔄 Iniciando bot en modo polling...")
     app = ApplicationBuilder().token(TOKEN).build()
