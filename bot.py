@@ -16,6 +16,7 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 GHL_API_KEY = os.getenv("GHL_API_KEY")
 GHL_BASE_URL = "https://rest.gohighlevel.com/v1"
+
 ADMIN_CHAT_ID = 6130272246
 
 # Menús
@@ -23,6 +24,7 @@ main_menu = ReplyKeyboardMarkup(
     [["1. Información sobre el grupo premium"], ["2. Preguntas frecuentes"]],
     resize_keyboard=True
 )
+
 faq_menu = ReplyKeyboardMarkup(
     [["1. Porcentaje de ganancias"], ["2. Plataforma de apuestas"], ["3. Duda de pick"], ["4. Otra pregunta"]],
     resize_keyboard=True
@@ -31,35 +33,48 @@ faq_menu = ReplyKeyboardMarkup(
 # Estado dinámico
 dynamic_state = {}
 
-# Normalizar texto
+# Función para normalizar texto
 def normalizar(texto):
     texto = texto.lower()
     return ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
-# Registrar en GHL
+# Función para registrar contacto en GHL y luego actualizar el campo telegram_id
 def registrar_en_ghl(telegram_id: int, email: str, nombre: str = ""):
     headers = {
         "Authorization": f"Bearer {GHL_API_KEY}",
         "Content-Type": "application/json"
     }
+
     contacto = {
         "email": email,
-        "tags": ["Lead interesado"],
-        "customFields": [
-            {
-                "key": "telegram_chat_id",
-                "value": str(telegram_id)
-            }
-        ]
+        "tags": ["Lead interesado"]
     }
     if nombre:
         contacto["firstName"] = nombre
 
     try:
-        url = f"{GHL_BASE_URL}/contacts/"
-        response = requests.post(url, headers=headers, json=contacto)
-        print("GHL response:", response.status_code, response.text)
-        return response.status_code in [200, 201]
+        # Paso 1: Crear contacto
+        create_url = f"{GHL_BASE_URL}/contacts/"
+        response = requests.post(create_url, headers=headers, json=contacto)
+        if response.status_code not in [200, 201]:
+            print(f"❌ Error creando contacto: {response.text}")
+            return False
+
+        contact_id = response.json()["contact"]["id"]
+
+        # Paso 2: Actualizar campo personalizado telegram_chat_id
+        update_url = f"{GHL_BASE_URL}/contacts/{contact_id}/customFields"
+        payload = [
+            {
+                "fieldKey": "telegram_chat_id",  # debe coincidir con GHL
+                "value": str(telegram_id)
+            }
+        ]
+        update_response = requests.put(update_url, headers=headers, json=payload)
+        print(f"✅ GHL update response: {update_response.status_code} {update_response.text}")
+
+        return update_response.status_code in [200, 204]
+
     except Exception as e:
         print(f"❌ Error registrando en GHL: {e}")
         return False
@@ -68,18 +83,15 @@ def registrar_en_ghl(telegram_id: int, email: str, nombre: str = ""):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(update.effective_user.id)
     dynamic_state.pop(user_id, None)
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="¡Hola! 👋 ¿Cómo puedo ayudarte hoy?",
-        reply_markup=main_menu
-    )
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="¡Hola! 👋 ¿Cómo puedo ayudarte hoy?", reply_markup=main_menu)
 
-# Manejo general
+# Manejo de mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(update.effective_user.id)
     text_raw = update.message.text.strip()
     text = normalizar(text_raw)
 
+    # Si está en espera de correo o pregunta
     if user_id in dynamic_state:
         motivo = dynamic_state.pop(user_id)
 
@@ -92,6 +104,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text("❌ Ocurrió un error al registrar tus datos.")
             return
+
         else:
             mensaje = (
                 f"📩 Nueva duda:\n"
@@ -107,22 +120,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text_raw == "1. Información sobre el grupo premium":
         await update.message.reply_text("Por favor, escribe tu correo electrónico para continuar con tu registro:")
         dynamic_state[user_id] = "esperando_email"
+
     elif text_raw == "2. Preguntas frecuentes":
         await update.message.reply_text("Selecciona una opción:", reply_markup=faq_menu)
+
     elif text_raw == "1. Porcentaje de ganancias":
         await update.message.reply_text("El porcentaje de ganancias mensual es de aproximadamente 85%.")
+
     elif text_raw == "2. Plataforma de apuestas":
         await update.message.reply_text("Usamos principalmente Bet365 y Caliente.mx.")
+
     elif text_raw == "3. Duda de pick":
         dynamic_state[user_id] = "Duda sobre pick"
         await update.message.reply_text("Escribe tu duda sobre un pick.")
+
     elif text_raw == "4. Otra pregunta":
         dynamic_state[user_id] = "Otra pregunta general"
         await update.message.reply_text("Por favor, escribe tu pregunta.")
+
     else:
         await update.message.reply_text("¡Hola! 👋 ¿Cómo puedo ayudarte hoy?", reply_markup=main_menu)
 
-# Iniciar app
+# Inicializar app
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
