@@ -18,7 +18,10 @@ GHL_API_KEY = os.getenv("GHL_API_KEY")
 GHL_BASE_URL = "https://rest.gohighlevel.com/v1"
 ADMIN_CHAT_ID = 6130272246
 
-# Menús
+# Clave del campo personalizado en GHL (ya confirmado)
+TELEGRAM_FIELD_KEY = "telegram_id"
+
+# Menús del bot
 main_menu = ReplyKeyboardMarkup(
     [["1. Información sobre el grupo premium"], ["2. Preguntas frecuentes"]],
     resize_keyboard=True
@@ -29,22 +32,21 @@ faq_menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# Estados dinámicos
+# Diccionario para controlar estados del usuario
 dynamic_state = {}
 
-# Función de normalización
+# Función para normalizar texto
 def normalizar(texto):
     texto = texto.lower()
     return ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
-# Registrar contacto y actualizar telegram_id
+# Función para registrar contacto y guardar el Telegram ID en GoHighLevel
 def registrar_en_ghl(telegram_id: int, email: str, nombre: str = ""):
     headers = {
         "Authorization": f"Bearer {GHL_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    # Crear contacto
     contacto = {
         "email": email,
         "tags": ["Lead interesado"]
@@ -53,9 +55,10 @@ def registrar_en_ghl(telegram_id: int, email: str, nombre: str = ""):
         contacto["firstName"] = nombre
 
     try:
-        # 1. Crear contacto
+        # Paso 1: Crear contacto
         create_response = requests.post(f"{GHL_BASE_URL}/contacts/", headers=headers, json=contacto)
         data = create_response.json()
+
         if create_response.status_code not in [200, 201]:
             print("❌ Error al crear contacto:", data)
             return False
@@ -65,9 +68,9 @@ def registrar_en_ghl(telegram_id: int, email: str, nombre: str = ""):
             print("❌ No se obtuvo contact_id")
             return False
 
-        # 2. Actualizar custom field 'telegram_id'
+        # Paso 2: Actualizar campo personalizado 'telegram_id'
         payload = [{
-            "fieldKey": "telegram_id",
+            "fieldKey": TELEGRAM_FIELD_KEY,
             "value": str(telegram_id)
         }]
         update_response = requests.put(
@@ -75,6 +78,7 @@ def registrar_en_ghl(telegram_id: int, email: str, nombre: str = ""):
             headers=headers,
             json=payload
         )
+
         print("📬 Actualización GHL:", update_response.status_code, update_response.text)
         return update_response.status_code in [200, 201]
 
@@ -82,7 +86,7 @@ def registrar_en_ghl(telegram_id: int, email: str, nombre: str = ""):
         print(f"❌ Error general en GHL: {e}")
         return False
 
-# /start
+# Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(update.effective_user.id)
     dynamic_state.pop(user_id, None)
@@ -111,7 +115,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Gracias, un administrador te responderá pronto.")
             return
 
-    # Flujo normal de opciones
+    # Flujo principal de opciones
     if text_raw == "1. Información sobre el grupo premium":
         await update.message.reply_text("Por favor, escribe tu correo electrónico para continuar con tu registro:")
         dynamic_state[user_id] = "esperando_email"
@@ -136,10 +140,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("¡Hola! 👋 ¿Cómo puedo ayudarte hoy?", reply_markup=main_menu)
 
-# Iniciar bot
+# Iniciar la aplicación
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("✅ Bot de leads corriendo correctamente...")
+    print("✅ Bot corriendo correctamente...")
     app.run_polling()
