@@ -38,56 +38,60 @@ def normalizar(texto):
     texto = texto.lower()
     return ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
 
-# Registrar contacto en GHL
+# Registrar contacto en GHL (estructura correcta con campos personalizados)
 def registrar_en_ghl(telegram_id: int, email: str, nombre: str = ""):
     headers = {
         "Authorization": f"Bearer {GHL_API_KEY}",
         "Content-Type": "application/json"
     }
+
     contacto = {
         "email": email,
-        "customField": {
-            "telegram_id": str(telegram_id)
-        },
+        "customFields": [
+            {
+                "key": "telegram_chat_id",  # ← Este debe coincidir exactamente con el campo en GHL
+                "value": str(telegram_id)
+            }
+        ],
         "tags": ["Lead interesado"]
     }
+
     if nombre:
         contacto["firstName"] = nombre
 
     try:
         url = f"{GHL_BASE_URL}/contacts/"
         response = requests.post(url, headers=headers, json=contacto)
+        print("GHL response:", response.status_code, response.text)  # Debug
         return response.status_code in [200, 201]
     except Exception as e:
         print(f"❌ Error registrando en GHL: {e}")
         return False
 
-# /start
+# Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(update.effective_user.id)
     dynamic_state.pop(user_id, None)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="¡Hola! 👋 ¿Cómo puedo ayudarte hoy?", reply_markup=main_menu)
 
-# Manejo de mensajes
+# Manejo general de mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(update.effective_user.id)
     text_raw = update.message.text.strip()
     text = normalizar(text_raw)
 
-    # Si está en espera de correo o pregunta
     if user_id in dynamic_state:
         motivo = dynamic_state.pop(user_id)
         
         if motivo == "esperando_email":
             email = text_raw
-            nombre = update.effective_user.first_name
-            ok = registrar_en_ghl(user_id, email, nombre)
-            if ok:
+            nombre = update.effective_user.first_name or ""
+            exito = registrar_en_ghl(user_id, email, nombre)
+            if exito:
                 await update.message.reply_text("✅ Registro exitoso. Gracias por tu interés.")
             else:
-                await update.message.reply_text("❌ Ocurrió un error al registrar tus datos.")
+                await update.message.reply_text("❌ Ocurrió un error al registrar tus datos. Intenta más tarde.")
             return
-
         else:
             mensaje = (
                 f"📩 Nueva duda:\n"
@@ -96,7 +100,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Mensaje: {text_raw}"
             )
             await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=mensaje)
-            await update.message.reply_text("Gracias, un administrador te responderá pronto.")
+            await update.message.reply_text("Gracias. Un administrador te responderá pronto.")
             return
 
     # Menú principal
@@ -124,7 +128,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("¡Hola! 👋 ¿Cómo puedo ayudarte hoy?", reply_markup=main_menu)
 
-# Inicializar app
+# Inicializar bot
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
