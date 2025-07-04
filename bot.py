@@ -72,13 +72,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"?notrack=true&telegram_id={user_id}"
         )
         await update.message.reply_text(
-            "🎯 <b>Información sobre el grupo premium:</b>\n\n"
-            "✅ Acceso a picks diarios\n"
-            "📈 Estrategias con respaldo numérico\n"
-            "🤖 Automatización de alertas\n"
-            "💬 Comunidad privada en Telegram\n\n"
-            f"📝 Para registrarte, llena este formulario:\n"
-            f"<a href='{registro_url}'>{registro_url}</a>",
+            "👋 <b>Hola!</b>\n\n"
+            "💸 El costo de entrada al grupo es de <b>499 pesos mexicanos</b> (aproximadamente <b>25 USD</b>) mensuales.\n"
+            "🎟️ Una vez realizado el pago, se te agrega directamente al grupo premium.\n\n"
+            f"📝 Llena este formulario para registrarte y realizar el pago:\n"
+            f"<a href='{registro_url}'>{registro_url}</a>\n\n"
+            "📬 Una vez completado el formulario, recibirás el acceso al grupo premium:\n"
+            "<a href='https://t.me/+8_k_c4DgkbE4M2Ux'>https://t.me/+8_k_c4DgkbE4M2Ux</a>",
             parse_mode="HTML"
         )
         return
@@ -90,11 +90,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # SUBMENÚ FAQ
     elif "porcentaje de ganancias" in text:
-        await update.message.reply_text("📊 El porcentaje de ganancias mensual es de aproximadamente 85%.")
+        await update.message.reply_text("📈 *PROMEDIO MENSUAL:* $11,773 ganados u 11.77 unidades ganadas\n💰 *TOTAL GENERAL:* $82,411 ganados u 82.41 unidades ganadas", parse_mode="Markdown")
         return
 
     elif "plataforma de apuestas" in text:
-        await update.message.reply_text("🏟 Usamos principalmente Bet365 y Caliente.mx.")
+        await update.message.reply_text("🏦 Usamos principalmente *Bet365* y *Playdoit*, pero puedes usar cualquier casa que permita apuestas a jugadores.", parse_mode="Markdown")
         return
 
     elif "duda de pick" in text:
