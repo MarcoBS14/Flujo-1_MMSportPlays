@@ -76,7 +76,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💸 El costo de entrada al grupo es de <b>499 pesos mexicanos</b> (aproximadamente <b>25 USD</b>) mensuales.\n"
             "🎟️ Una vez realizado el pago, se te agrega directamente al grupo premium.\n\n"
             f"📝 Llena este formulario para registrarte y realizar el pago:\n"
-            f"<a href='{registro_url}'>{registro_url}</a>\n\n"
+            f"<a href='{registro_url}'>{registro_url}</a>\n\n",
+            parse_mode="HTML"
         )
         return
 
