@@ -77,9 +77,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎟️ Una vez realizado el pago, se te agrega directamente al grupo premium.\n\n"
             f"📝 Llena este formulario para registrarte y realizar el pago:\n"
             f"<a href='{registro_url}'>{registro_url}</a>\n\n"
-            "📬 Una vez completado el formulario, recibirás el acceso al grupo premium:\n"
-            "<a href='https://t.me/+8_k_c4DgkbE4M2Ux'>https://t.me/+8_k_c4DgkbE4M2Ux</a>",
-            parse_mode="HTML"
         )
         return
 
